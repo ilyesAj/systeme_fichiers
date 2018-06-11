@@ -149,7 +149,7 @@ void format_disk ()
 
 	}
 }
-struct inode* find (const char *path)
+struct inode* find (const char* path)
 //trouver un inode a partir du chemin du fichier / repertoire donné 
 // distinction entre repertoire et fichie suivant le dernier caractere du chemin "/"
 {
@@ -161,7 +161,7 @@ struct inode* find (const char *path)
 	//on stockera le dentry suivant les repertoire dans le chemin
 	int count = 0;
 	//le nombre de repertoires dans le chemins
-	char arg[MAX_LEVEL][MAX_FILE_NAME_LENGTH];
+	char arg[MAX_LEVEL][MAX_FILE_NAME_LENGTH]={{0},{0}};
 	//stocker les noms de repertoire suivant les etages
 	//notre programme supporte que 10 de repertoire il faut pas deppasser le MAX_LEVEL
 	//MAX_FILE_NAME_LENGTH : comme son nom l'indique est la taille max d'un nom de repertoire
@@ -212,7 +212,7 @@ struct inode* find (const char *path)
 		}
 		else
 		{
-			arg[j][k]='\0';
+			arg[j][k-1]='\0';
 			//conclure la chaine
 			i++;
 			j++;
@@ -329,7 +329,7 @@ int get_block()
 	char bits[BLOCKSIZE];
 	//variable ou stocker le block trouvé
 
-	for (i=BLOCK_MAP_START ; i < INODE_TABLE_START ; i++)
+	for (i=BLOCK_MAP_START ; i < INODE_MAP_START ; i++)
 	//chercher dans la carte des bloques
 	//trouver le numero du bloque
 	{
@@ -339,7 +339,7 @@ int get_block()
 		//chercher le nombre de bit 
 		//s'arreter au premier bit null 
 		{
-			if (bits[j] != 0xffffffff)
+			if (bits[j] != '\xff')
 			{
 				found =1;
 				//byte dans le bloque trouvé 
@@ -352,7 +352,7 @@ int get_block()
 			break;
 			//s'arreter si on a trouvé le bloque
 		}	
-
+	}
 	bitb = (unsigned char ) bits[j];
 	//recuperer le byte trouvé 
 	for (k=0;k<8;k++)
@@ -363,7 +363,7 @@ int get_block()
 			//chercher le premier indice de bit 1 
 		}
 	}
-	retval = k + j * 8 + (i-BLOCK_MAP_START) * 8192 + BLOCK_TABLE_START;
+	retval = k + j * 8 + (i-BLOCK_MAP_START) * 8192 + BLOCK_MAP_START;
 	// k indice du bit trouvé j l'indice du byte contenant le bit
 	//i l'indice du bloque dans la carte de bloque 8192 est le nombre de bloques dans le disque
 	//BLOCK_TABLE_START ou commence les bloque => recuperer l'indice du bloque dans le disque
@@ -378,8 +378,6 @@ int get_block()
 	//ecriture du bloque
 	return retval;
 	//renvoi du nombre de bloque libre créé
-
-	}
 }
 int get_inode() {
 //meme principe que get_block()
@@ -389,20 +387,19 @@ int get_inode() {
     int ret;
     unsigned char bitb;
     char bits[BLOCKSIZE];
-    for(i = INODE_MAP_START; i < INODE_TABLE_START; i ++)
+    for(i = INODE_MAP_START; i < INODE_TABLE_START; i++)
     //changement de l'interval de recherche 
     //on cherche dans la carte des inodes	
     {
         read_block(i, bits);
         for(j = 0; j < BLOCKSIZE; j ++){
-            if(bits[j] != 0xffffffff) {
+            if(bits[j] != '\xff') {
                 found = 1;
                 break;
             }
         }
         if(found) break;
     }
-
     bitb = (unsigned char)bits[j];
     for(k = 0; k < 8; k ++)
     {
@@ -444,7 +441,9 @@ int mycreat(const char* path)
 	//inode a creer et stocker dans le disque
 	struct dir tmp_direc;
 	//la dentry a creer et stocker
-
+	char bits[BLOCKSIZE]; // bloc de bit map
+	int found = 0; // marqueur si on trouve un espace vide dans le bitmap
+	int nb=0;
 	//separer le nom du fichier du repertoire
 	while(path[i]!='\0')
 	{
@@ -467,7 +466,7 @@ int mycreat(const char* path)
 	//verification de l'existance du repertoire
 	if (cur == NULL)
 	{
-		printf("repertoire inexistante : %s\n",dir_name);
+		printf("repertoire inexistant : %s\n",dir_name);
 	}
 	//si oui
 	//verification si le repertoire est bel et bien un repertoire et non un fichier
@@ -548,7 +547,6 @@ int mycreat(const char* path)
 		printf("espace insuffisant \n");
 		return -1;
 	}
-
 	tmp_direc.dentry[empty_dentry].inode=newinode; // initialiser l'inode dans la dentry a partir du numero du nouvel inode
 	tmp_direc.dentry[empty_dentry].type= FILE_TYPE;  //le type est un fichier dans la dentry
 	if(strlen(file_name) <32)
@@ -606,6 +604,48 @@ int mycreat(const char* path)
 			//arreter la recherche descripteur libre trouvé
 		}
 	}
+	for(i = INODE_MAP_START; i < INODE_TABLE_START; i ++)
+    //changement de l'interval de recherche 
+    //on cherche dans la carte des inodes	
+    {
+        read_block(i, bits);
+        for(j = 0; j < BLOCKSIZE; j ++){
+            if(bits[j] != '\xff') {
+                found = 1;
+                nb=i;
+                break;
+            }
+        }
+        if(found) break;
+    }
+    bits[j]='\xff';//changement de la carte 
+    write_block(nb,bits);//mise a jour du bitmap
+    for (i=BLOCK_MAP_START ; i < INODE_MAP_START ; i++)
+	//chercher dans la carte des bloques
+	//trouver le numero du bloque
+	{
+		read_block(i,bits);
+		for (j=0; j< BLOCKSIZE ;j++)
+		//parcour du bloque lu
+		//chercher un bit vide , un bit rempli contient 0xff
+		{
+			if (bits[j] != '\xff')
+			{
+				found =1;
+				//byte dans le bloque trouvé 
+				nb=i;
+				break;
+				//arreter la recherche
+			}
+		}
+		if (found)
+		{
+			break;
+			//s'arreter si on a trouvé le bloque
+		}	
+	}
+	bits[j]='\xff'; //changemet de la carte 
+	write_block(nb,bits);// mise a jour du bit map
 
 	if (ret == -1 )
 	{
@@ -616,15 +656,101 @@ int mycreat(const char* path)
 
 	return ret;
 }
+void my_close(const char* path)
+{
+	
+	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
+	int numb=-2; // conteneur du numero inode 
+	int found =-1; // marquer de test
+	int i; // compteur
+	cur = find(path); // recherche l'inode du fichier
+	if (cur ==  NULL)
+	//test si le fichier est introuvable 	
+	{
+		printf("fichier %s inexistant\n",path);
+	}
+	else 
+	if (cur->type == DIR_TYPE )
+	// test s'il s'agit d'un repertoire
+	{
+		printf("%s n'est pas un fichier\n",path);
+	}
+	else
+	{
+		numb = cur->num ;
+		
+		for (i=0;i<MAX_OPEN_FILES;i++)
+		//chercher et fermer le fichier 
+		// on stocke dans la table des fichier ouvert le numero de l'inode 
+		{
+			if (fd[i]==numb)
+			{
+				fd[i]=-1;
+				found=1;
+				printf("%s fermé\n",path );
+				break;
+			}
+		}
+		if (found==-1)
+		//si on a pas trouvé le fichier dans fd => fichier fermé 
+		printf("fichier deja fermé\n");
+		free (cur);
+	}
 
+}
+
+int my_open(const char* path)
+{
+	int numb=-1;
+	int ret=-1;
+	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
+	int i;
+	cur = find (path);
+	if (cur == NULL)
+	{
+		printf("fichier %s inexistant\n",path);
+		return -1;
+	}
+	if (cur->type == DIR_TYPE )
+	// test s'il s'agit d'un repertoire
+	{
+		printf("%s n'est pas un fichier\n",path);
+	}
+	numb = cur-> num ;
+	for (i=0;i<MAX_OPEN_FILES;i++)
+	{
+		if (fd[i]==0 || fd[i]==-1)
+		{
+			fd[i]=numb;
+			ret=i;
+			printf("%s ouvert dans le descripteur %d\n",path,i);
+			break;
+		}
+	}
+	if (ret == -1)
+	{
+		printf("nombre maximal de fichier ouvert atteint, ouverture impossible\n");
+	}
+
+}
 int main(int argc, char const *argv[])
 {
+	
 	format_disk();
+	mycreat("/bb");
+	mycreat("/abc");
+	mycreat("/bcc");
 	mycreat("/a");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
-	cur = find("/a");
-	printf("done find\n");
-	printf("nom fichier %s \n", cur->name); 
+	cur=find("/a");
+
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/bcc");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/abc");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/bb");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
 	close(f);
 	return 0;
 }
