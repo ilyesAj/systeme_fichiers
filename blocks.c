@@ -155,7 +155,7 @@ void format_disk ()
 
 	}
 }
-struct inode* find (const char* path)
+struct inode* find(const char* path)
 //trouver un inode a partir du chemin du fichier / repertoire donné 
 // distinction entre repertoire et fichie suivant le dernier caractere du chemin "/"
 {
@@ -758,10 +758,11 @@ int my_read (int fdd, void * buf ,int nbtes)
 	int lstind=0;
 	if (fd[fdd]==0 || fd[fdd]== -1)
 	{
-		printf("le fichier n'est pas ouvert \n" );
+		printf("lecture :le fichier n'est pas ouvert \n" );
 	}
 	else
 	{ // lecture
+		read_inode(fd[fdd],cur);
 		if (blk <=10)
 		//lecture seulement des blocs directs
 		{
@@ -865,23 +866,133 @@ int my_read (int fdd, void * buf ,int nbtes)
 	return len;
 }
 
+int my_write (int fdd, char * buf ,int nbtes)
+{
+	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
+	unsigned char tmp[BLOCKSIZE];
+	int i,j;
+	int blk = (nbtes / 1024) + 1 ; // calcul du nombre de blocs a parcourir 
+	// a ecrire depuis chacun 1024 sauf le dernier bloc, que lstblk a ecrire ( si lstblk !=0 )
+	int lstblk = nbtes % 1024 ;
+	int len = 0; // longeur du buf 
+	int rdnb = BLOCKSIZE;
+	int nbind=0; // nombre de blocs indirects a parcourir
+	int lstind=0;
+	if (fd[fdd]==0 ||fd[fdd]==-1)
+	{
+		printf("ecriture: le fichier n'est pas ouvert \n");
+	}
+	else
+	{
+		// ecriture 
+		read_inode(fd[fdd],cur);
+		if (blk<=10)
+		{
+			for (i=0;i<blk;i++)
+			{ // parcour des blocs
+				if (i<blk-1) 
+				{
+					rdnb=BLOCKSIZE;
+				}
+				else
+				{
+					if (lstblk == 0)
+						rdnb = BLOCKSIZE;
+					else
+						rdnb = lstblk;
+				}
+				if (read_block(cur->blocks[i],tmp)==-1) // lecture du bloc a copier 	
+				//allouer nouveau si introuvable	
+				{
+					cur->blocks[i]=get_block();
+				}
+				memcpy(tmp , &buf[len] ,rdnb); // memcpy copie du buf a partir de len  dans buf rdnb bytes
+				
+				len+=rdnb;
+				write_block(cur->blocks[i],tmp);
+			}
+		}
+		else
+		{ // lecture des blocs direct et indirects 
+
+			// lecture des bloc directs avants
+			for (i=0;i<10;i++)
+			//il y'a que 10 blocs directs
+			{
+				if (read_block (cur->blocks[i],tmp)==-1)
+				{
+					cur->blocks[i]=get_block();
+				}
+				memcpy(tmp,&buf[len],BLOCKSIZE);
+				len+=BLOCKSIZE;
+				write_block(cur->blocks[i],tmp);
+				
+			}
+			nbind = ((blk -10) / 256) + 1;
+			//chaque bloc indirect contient 256 blocs directs 
+			// on a deja parcouru 10 blocs
+			for (i=0;i<nbind-1;i++)
+			{
+				for (j=0;j<256;j++)
+				{
+					if (read_block ((cur->ind_blocks[i]).blocks[j],tmp)==-1)
+					//lire les blocs indirects
+					{
+						(cur->ind_blocks[i]).blocks[j]=get_block();
+					}
+					memcpy(tmp,&buf[len],BLOCKSIZE);
+					len+=BLOCKSIZE;
+					write_block((cur->ind_blocks[i]).blocks[j],tmp);
+				}
+			}
+			lstind = (blk-10) % 256;
+			//nombre de dernier blocs idirects a parcourir
+			if (lstind == 0) 
+				lstind = 256;
+			for (j=0;j<lstind;j++)
+			{
+				if (i<lstind-1) 
+				{
+					rdnb=BLOCKSIZE;
+				}
+				else
+				{
+					if (lstblk == 0)
+						// si le reste de la division par 1024 (BLOCKSIZE) est > 0
+						// on met ce rest rdnb (pour ne pas lire plus qu'a demandé l'utilisateur)
+						rdnb = BLOCKSIZE;
+					else
+						rdnb = lstblk;
+				}
+				if (read_block((cur->ind_blocks[i]).blocks[j],tmp)!=-1) // lecture du bloc a copier 		
+				{
+					(cur->ind_blocks[i]).blocks[j]=get_block();	
+				}
+					memcpy(tmp , &buf[len] ,rdnb); // memcpy copie du bloc dans buf 
+					// on decale le pointeur de buf pour ne pas ecraser l'ancienne lecture
+					len+=rdnb;
+					write_block((cur->ind_blocks[i]).blocks[j],tmp);
+			}
+		}	
+		write_inode(fd[fdd],cur);
+	}
+
+}
 int main(int argc, char const *argv[])
 {
 	
+	//char msg[500]="Arrivés à ce point, vous savez rédiger un document, à partir d'une feuille vide ou en utilisant un modèle, l'enregistrer au format adéquat, faire des sélections, recherches et remplacements. Nous allons maintenant nous intéresser à la mise en forme des éléments textuels";
+	//char rc[500]="";
 	format_disk();
-	mycreat("/bb");
-	mycreat("/abc");
-	mycreat("/bcc");
 	mycreat("/a");
+	//mycreat("/abc");
+	//mycreat("/bcc");
+	//mycreat("/a");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
-	cur=find("/a");
-
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
-	cur=find("/bcc");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
-	cur=find("/abc");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	
 	cur=find("/bb");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/a");
 	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
 	close(f);
 	return 0;
