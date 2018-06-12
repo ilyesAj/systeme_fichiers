@@ -32,6 +32,11 @@ struct super_block
 	int free_inode;			//free inode number
 };
 
+struct ind_block
+{
+	int blocks[256];
+};
+
 // each inode has 256 Bytes
 struct inode {
 	int type;                       /* 1 for file, 2 for dir */
@@ -42,16 +47,13 @@ struct inode {
 	char mode[11];					/* ACL of inode */
 	char name[MAX_FILE_NAME_LENGTH];   /* file name */
 	int blocks[10];                 /* direct blocks(10 KB) */
-	int ind_blocks[30];            /* indirect blocks(7.5 MB) */
+	struct ind_block ind_blocks[30];            /* indirect blocks(7.5 MB) */
 	//3-level indirect blocks
 	char unused[15];
 };
 
 // indirect block's structure
-struct ind_block
-{
-	int blocks[256];
-};
+
 
 //directory entry in block (32 bytes), each block has 32 dir entries at most
 struct dirEntry

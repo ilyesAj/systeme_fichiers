@@ -87,6 +87,7 @@ void format_disk ()
 	char* test = (char*) calloc (BLOCKSIZE,1); // bloc a lire
 	struct inode *root = (struct inode *) malloc(sizeof(struct inode)); // allocation inode root
 	struct dir *root_block = (struct dir *) malloc(sizeof(struct dir)); // allocation bloque de root repertoire
+	struct ind_block  ind_init;
 	int i; // compteur 
 	read_block(0,test);
 	if (* (int *) test == 2012) // test si le disque est deja formaté 
@@ -122,9 +123,14 @@ void format_disk ()
 		strcpy(root->name, "/"); // nom du repertoire root 
 		root->blocks[0] = BLOCK_TABLE_START;     // ou est stocké le repertoire root dans le disque 
 		for(i = 1; i < 10; i++)
-			root->blocks[i] = -1;    // les autres bloques sont a null on pas depassé qté de données d'un bloque de données
+			root->blocks[i] = -1;    // les autres blocs sont a null on pas depassé qté de données d'un bloque de données
+		for (i=0;i<256;i++)
+		{
+			ind_init.blocks[i]=-1;
+		}
+
 		for(i = 0; i < 30; i++)
-			root->ind_blocks[i] = -1; // meme pour les bloque indirecte puisque les autres bloques son vides
+			root->ind_blocks[i] = ind_init; // meme pour les blocs indirects puisque les autres bloques son vides
 		write_inode(1, root);
 		printf("inode root ecrit \n");
 		// inode root ecrit [X]
@@ -444,6 +450,7 @@ int mycreat(const char* path)
 	char bits[BLOCKSIZE]; // bloc de bit map
 	int found = 0; // marqueur si on trouve un espace vide dans le bitmap
 	int nb=0;
+	struct ind_block  ind_init;
 	//separer le nom du fichier du repertoire
 	while(path[i]!='\0')
 	{
@@ -582,9 +589,13 @@ int mycreat(const char* path)
 	{
 		tmp_inode.blocks[i]=-1;
 	}// les autre bloques sont non aloués
+	for (i=0;i<256;i++)
+	{
+		ind_init.blocks[i]=-1;
+	}
 	for (i=0;i<30;i++)
 	{
-		tmp_inode.ind_blocks[i]=-1;
+		tmp_inode.ind_blocks[i]=ind_init;
 		//les bloques indirectes sont non aloués certainement
 	}
 	//sauvegarde de l'inode 
@@ -733,6 +744,127 @@ int my_open(const char* path)
 	}
 
 }
+int my_read (int fdd, void * buf ,int nbtes)
+{
+	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
+	unsigned char tmp[BLOCKSIZE];
+	int i,j;
+	int blk = (nbtes / 1024) + 1 ; // calcul du nombre de blocs a parcourir 
+	// a lire depuis chacun 1024 sauf le dernier bloc a lire lstblk ( si lstblk !=0 )
+	int lstblk = nbtes % 1024 ;
+	int len = 0; // longeur du buf 
+	int rdnb = BLOCKSIZE;
+	int nbind=0; // nombre de blocs indirects a parcourir
+	int lstind=0;
+	if (fd[fdd]==0 || fd[fdd]== -1)
+	{
+		printf("le fichier n'est pas ouvert \n" );
+	}
+	else
+	{ // lecture
+		if (blk <=10)
+		//lecture seulement des blocs directs
+		{
+			for (i=0;i<blk;i++)
+			{ // parcour des blocs
+				if (i<blk-1) 
+				{
+					rdnb=BLOCKSIZE;
+				}
+				else
+				{
+					if (lstblk == 0)
+						// si le reste de la division par 1024 (BLOCKSIZE) est > 0
+						// on met ce rest rdnb (pour ne pas lire plus qu'a demandé l'utilisateur)
+						rdnb = BLOCKSIZE;
+					else
+						rdnb = lstblk;
+				}
+				if (read_block(cur->blocks[i],tmp)!=-1) // lecture du bloc a copier 		
+				{
+					memcpy(buf + len , tmp ,rdnb); // memcpy copie du bloc dans buf 
+					// on decale le pointeur de buf pour ne pas ecraser l'ancienne lecture
+					len+=rdnb;
+				}
+				else
+					printf("erreur lecture fichier\n");
+			}
+		}
+		else 
+		{ // lecture des blocs direct et indirects 
+
+			// lecture des bloc directs avants
+			for (i=0;i<10;i++)
+			//il y'a que 10 blocs directs
+			{
+				if (read_block (cur->blocks[i],tmp)!=-1)
+				{
+					memcpy(buf+len,tmp,BLOCKSIZE);
+					len+=BLOCKSIZE;
+				}
+				else
+				{
+					printf("erreur lecture fichier\n");
+				}
+			}
+			nbind = ((blk -10) / 256) + 1;
+			//chaque bloc indirect contient 256 blocs directs 
+			// on a deja parcouru 10 blocs
+			for (i=0;i<nbind-1;i++)
+			{
+				for (j=0;j<256;j++)
+				{
+					if (read_block ((cur->ind_blocks[i]).blocks[j],tmp)!=-1)
+					//lire les blocs indirects
+					{
+						memcpy(buf+len,tmp,BLOCKSIZE);
+						len+=BLOCKSIZE;
+					}
+					else
+					{
+						printf("erreur lecture fichier\n");
+					}	
+				}
+			}
+			lstind = (blk-10) % 256;
+			//nombre de dernier blocs idirects a parcourir
+			if (lstind == 0) 
+				lstind = 256;
+			for (j=0;j<lstind;j++)
+			{
+				if (i<lstind-1) 
+				{
+					rdnb=BLOCKSIZE;
+				}
+				else
+				{
+					if (lstblk == 0)
+						// si le reste de la division par 1024 (BLOCKSIZE) est > 0
+						// on met ce rest rdnb (pour ne pas lire plus qu'a demandé l'utilisateur)
+						rdnb = BLOCKSIZE;
+					else
+						rdnb = lstblk;
+				}
+				if (read_block((cur->ind_blocks[i]).blocks[j],tmp)!=-1) // lecture du bloc a copier 		
+				{
+					memcpy(buf + len , tmp ,rdnb); // memcpy copie du bloc dans buf 
+					// on decale le pointeur de buf pour ne pas ecraser l'ancienne lecture
+					len+=rdnb;
+				}
+				else
+					printf("erreur lecture fichier\n");
+			}
+
+
+
+
+		}
+
+	}
+
+	return len;
+}
+
 int main(int argc, char const *argv[])
 {
 	
