@@ -322,6 +322,7 @@ struct inode* find(const char* path)
 	return aux;
 	
 }
+
 int get_block()
 //renvoyer le numero d'un bloque vide
 {
@@ -359,27 +360,11 @@ int get_block()
 			//s'arreter si on a trouvé le bloque
 		}	
 	}
-	bitb = (unsigned char ) bits[j];
-	//recuperer le byte trouvé 
-	for (k=0;k<8;k++)
-	{
-		if((~(bitb << k) & 0x80) != 0)
-		{
-			break;
-			//chercher le premier indice de bit 1 
-		}
-	}
-	retval = k + j * 8 + (i-BLOCK_MAP_START) * 8192 + BLOCK_MAP_START;
-	// k indice du bit trouvé j l'indice du byte contenant le bit
-	//i l'indice du bloque dans la carte de bloque 8192 est le nombre de bloques dans le disque
-	//BLOCK_TABLE_START ou commence les bloque => recuperer l'indice du bloque dans le disque
-	if (retval >= 102400) //nombre de bloques possibles
-	{
-		printf("erreur : pas de bloques libres \n");
-		return -1;
-	}
-	bits[retval >> 3] |= (1 << (8 - 1 - (retval & 0x07)));
-	//decaler retval de 3 bits , reglages du bitmap des blocks
+	
+	retval = (i-1)*1024 + j;
+	retval+=2516;
+	printf("--------------- new block %d\n", retval );
+	bits[j]='\xff';
 	write_block(i,bits);
 	//ecriture du bloque
 	return retval;
@@ -406,25 +391,11 @@ int get_inode() {
         }
         if(found) break;
     }
-    bitb = (unsigned char)bits[j];
-    for(k = 0; k < 8; k ++)
-    {
-       	if((~(bitb << k) & 0x80) != 0)
-       	{
-       		break;
-       	}
-    } 
-
-    ret = k + j * 8 + (i - INODE_MAP_START) * 8192 + INODE_TABLE_START;
-    // changemennt des parametre des inodes 
-    if (ret >= MAX_FILE_NUM) 
-    {
-        printf("erreur : pas d'inodes libres\n");
-        return -1;
-    }
-    bits[ret >> 3] |= (1 << (8 - 1 - (ret & 0x07)));             
+    ret = (i-14)*1024 + j;
+    ret+=16 ;  
+    printf("--------------- new inode %d\n", ret );    
+    bits[j]='\xff';
     write_block(i, bits);
-
     return ret;
 }
 int mycreat(const char* path)
@@ -506,6 +477,7 @@ int mycreat(const char* path)
 			}
 		}
 	}
+
 	//sinon recherche de dentry vide ou mettre le fichier
 
 	for (i=0;i<10;i++)
@@ -549,6 +521,7 @@ int mycreat(const char* path)
 
 	// recuperation d'un inode vide 
 	newinode = get_inode();
+	printf("%d\n",newinode );
 	if (newinode == -1 )
 	{
 		printf("espace insuffisant \n");
@@ -615,48 +588,6 @@ int mycreat(const char* path)
 			//arreter la recherche descripteur libre trouvé
 		}
 	}
-	for(i = INODE_MAP_START; i < INODE_TABLE_START; i ++)
-    //changement de l'interval de recherche 
-    //on cherche dans la carte des inodes	
-    {
-        read_block(i, bits);
-        for(j = 0; j < BLOCKSIZE; j ++){
-            if(bits[j] != '\xff') {
-                found = 1;
-                nb=i;
-                break;
-            }
-        }
-        if(found) break;
-    }
-    bits[j]='\xff';//changement de la carte 
-    write_block(nb,bits);//mise a jour du bitmap
-    for (i=BLOCK_MAP_START ; i < INODE_MAP_START ; i++)
-	//chercher dans la carte des bloques
-	//trouver le numero du bloque
-	{
-		read_block(i,bits);
-		for (j=0; j< BLOCKSIZE ;j++)
-		//parcour du bloque lu
-		//chercher un bit vide , un bit rempli contient 0xff
-		{
-			if (bits[j] != '\xff')
-			{
-				found =1;
-				//byte dans le bloque trouvé 
-				nb=i;
-				break;
-				//arreter la recherche
-			}
-		}
-		if (found)
-		{
-			break;
-			//s'arreter si on a trouvé le bloque
-		}	
-	}
-	bits[j]='\xff'; //changemet de la carte 
-	write_block(nb,bits);// mise a jour du bit map
 
 	if (ret == -1 )
 	{
@@ -886,6 +817,9 @@ int my_write (int fdd, char * buf ,int nbtes)
 	{
 		// ecriture 
 		read_inode(fd[fdd],cur);
+		// vider l'ancien fichier s'il exite 
+
+
 		if (blk<=10)
 		{
 			for (i=0;i<blk;i++)
@@ -985,15 +919,31 @@ int main(int argc, char const *argv[])
 	//char rc[500]="";
 	format_disk();
 	mycreat("/a");
-	//mycreat("/abc");
-	//mycreat("/bcc");
-	//mycreat("/a");
+	mycreat("/abc");
+	mycreat("/bcc");
+	mycreat("/d");
+	mycreat("/f");
+	mycreat("/g");
+	mycreat("/z");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
-	
-	cur=find("/bb");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
 	cur=find("/a");
 	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/abc");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/bcc");
+	printf("nom fichier %s numero inode : %d \n", cur->name,cur->num); 
+	cur=find("/d");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/f");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/g");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	cur=find("/z");
+	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	//my_write(0,msg,500);
+	//my_read(0,rc,500);
+	//printf("ch :%s\n", rc );
+
 	close(f);
 	return 0;
 }
