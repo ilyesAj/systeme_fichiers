@@ -11,7 +11,7 @@
 #define INODE_TABLE_START 16      //first inode block
 #define BLOCK_TABLE_START 2516    //inode table costs 2500 blocks 
 #define BLOCKSIZE 1024
-
+#define EMPTY_BLOCK 102399
 #define FILE_TYPE 1
 #define DIR_TYPE 2
 
