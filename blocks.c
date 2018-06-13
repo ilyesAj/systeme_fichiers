@@ -1325,30 +1325,7 @@ void my_rmdir (const char* path)
 	
 	read_block(EMPTY_BLOCK,empty_block);
 	cur2=find(path);
-	if (cur2->type== FILE_TYPE)
-	{
-		printf("%s est un fichier \n",path);
-	}
-	read_block(cur2->blocks[0],direc);
-	for (i=2;i<32;i++)
-	{
-		if (direc->dentry[i].inode!=0)
-		{
-			printf("%s est plein echec suppression\n",path );
-		}
-	}
 	
-	for(i=1;i<10;i++)
-	{
-		read_block(cur2->blocks[i],direc);
-		for (j=0;j<32;j++)
-		{
-			if (direc->dentry[j].inode!=0)
-			printf("%s est plein echec suppression\n",path );
-		}
-	}
-
-
 	while(path[i]!='\0')
 	{
 		if(path[i] == '/' && path[i+1]!='\0')
@@ -1407,6 +1384,8 @@ void my_rmdir (const char* path)
 			}
 		}
 	}
+
+
 	if (found)
 		write_inode(cur->num,cur);
 	else 
