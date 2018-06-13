@@ -181,6 +181,7 @@ struct inode* find(const char* path)
 	int d = 0 ;
 	//marqueur de repertoire ou fichier suivant le chemin
 	// cas de chemin est celui du root 
+	
 	if (!strcmp(path,"/"))
 	{
 		read_inode (1,root);
@@ -234,6 +235,7 @@ struct inode* find(const char* path)
 	else
 	count= j+1;
 	//nom fichier est dans la chaine suivant le '/'
+
 	if  (abs == 1)
 	{
 		read_inode(1,aux);
@@ -247,12 +249,14 @@ struct inode* find(const char* path)
 	}
 	i=0;
 	j=0;
+
 	while (j<count-1)
 	{
 		found=-1;
 		for (k=0;k<10;k++)
 		{
 			read_block(aux->blocks[k],dir);
+			
 			for (i=0;i<32;i++)
 			{
 				if (dir->dentry[i].inode!=0 && dir->dentry[i].type==DIR_TYPE && !strcmp(dir->dentry[i].name,arg[j]))
@@ -278,8 +282,14 @@ struct inode* find(const char* path)
 		
 	}
 	found=-1;
+
 	for(k=0;k<10;k++)
 	{
+		if (aux->blocks[k]==-1 || aux->blocks[k]==0 )
+		{
+			continue;
+		}
+
 		read_block(aux->blocks[k],dir);
 		for (i=0;i<32;i++)
 		{
@@ -307,16 +317,15 @@ struct inode* find(const char* path)
 			break;
 		}
 	}
-	if (!found)
+	if (found==-1)
 	{
 		printf("%s introuvable \n",path );
 		return NULL;
-	}	
+	}
+	else	
 	read_inode(inum,aux);
+
 	return aux;
-
-
-
 }
 
 
@@ -1340,7 +1349,7 @@ void my_rmdir (const char* path)
 	//cloturer la chaine dir_name
 	strncpy(file_name,path+div+1,i-div-1);
 	//stocker le nom du fichier
-	file_name[i-div-1] ='\0';
+	file_name[i-div-2] ='\0';
 	cur=find(dir_name);
 
 	//recuperer l'inode du repertoire courant
@@ -1368,7 +1377,7 @@ void my_rmdir (const char* path)
 		}
 		read_block(cur->blocks[i],&tmp_direc);
 		//lecture du bloque
-		for (j=0;j<32;j++)
+		for (j=0;j<32;j++) 
 		{
 			if (tmp_direc.dentry[j].inode !=0 && tmp_direc.dentry[j].type==DIR_TYPE && strcmp(tmp_direc.dentry[j].name, file_name) == 0 )
 			//si l'inode du dentry est utilisé et il a le type d'un fichier et le nom du fichier a créé est le meme dans le dentre 
@@ -1384,7 +1393,6 @@ void my_rmdir (const char* path)
 			}
 		}
 	}
-
 
 	if (found)
 		write_inode(cur->num,cur);
@@ -1406,11 +1414,6 @@ void my_rmdir (const char* path)
 	read_block(l,bk);
 	bk[k]='\x00';
 	write_block(l,bk);
-
-
-
-
-
 }
 
 
@@ -1424,11 +1427,11 @@ int main(int argc, char const *argv[])
 	//char rc2[500]="";
 	//char msg2[20]="";
 	//char rc2[20]="";
-	format_disk();
-	mycreat("/a");
+	//format_disk();
+	//mycreat("/a");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
-	cur=find("/a");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	//cur=find("/a");
+	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
 	//my_write(0,msg,500);
 	//my_read(0,rc,500);
 	//printf("ch :%s\n", rc );
@@ -1436,15 +1439,16 @@ int main(int argc, char const *argv[])
 	//my_read(0,rc2,20);
 	//printf("%s\n",rc2 );
 	//my_rm_file("/a");
-	my_mkdir("/b/");
-	mycreat("/b/a");
-	cur=find("/b/a");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
-	cur=find("/b/");
-	printf("nom fichier %s numero inode : %d \n", cur->name, cur->num);
-	my_mkdir("/d/"); 
-	my_rmdir("/d/");
-	cur=find("/d/");
+	//my_mkdir("/b/");
+	//mycreat("/b/a");
+	//cur=find("/b/a");
+	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
+	//cur=find("/b/");
+	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num);
+	//my_mkdir("/d/"); 
+	//printf("here\n");
+	//my_rmdir("/d/");
+	cur=find("/d");
 	//printf("nom fichier %s numero inode : %d type %d \n", cur->name, cur->num,cur->type);
 	//mycreat("/a");
 	//my_read(0,rc2,500);
