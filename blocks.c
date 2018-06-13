@@ -447,6 +447,7 @@ int mycreat(const char* path)
 	char bits[BLOCKSIZE]; // bloc de bit map
 	int found = 0; // marqueur si on trouve un espace vide dans le bitmap
 	int nb=0;
+	int no_new=1;
 	struct ind_block  ind_init;
 	//separer le nom du fichier du repertoire
 	while(path[i]!='\0')
@@ -497,111 +498,118 @@ int mycreat(const char* path)
 			{
 				//fichier deja existant !
 				printf("Fichier deja existant \n");
-				return -1 ; 
+				no_new= -1 ; 
 				//sortie erreur de creation du fichier 
 			}
 		}
 	}
 
 	//sinon recherche de dentry vide ou mettre le fichier
-
-	for (i=0;i<10;i++)
-	//parcour des bloque
+	if (no_new == 1)
 	{
-		if (cur->blocks[i] != -1)
+		for (i=0;i<10;i++)
+		//parcour des bloque
 		{
-			read_block(cur->blocks[i],&tmp_direc);
-			//lecture du bloque
-			for (j=0;j<32;j++)
-			//parcour des dentry
+			if (cur->blocks[i] != -1)
 			{
-				if (tmp_direc.dentry[j].inode==0)
-				//inode vide trouvé
+				read_block(cur->blocks[i],&tmp_direc);
+				//lecture du bloque
+				for (j=0;j<32;j++)
+				//parcour des dentry
 				{
-					empty_dentry=j;
-					//stocker le nombre du dentry vide
-					break;
-					//arreter la recherche
+					if (tmp_direc.dentry[j].inode==0)
+					//inode vide trouvé
+					{
+						empty_dentry=j;
+						//stocker le nombre du dentry vide
+						break;
+						//arreter la recherche
+					}
+				}
+				if (j<32)
+				{
+					break ;
+					//dentry vide deja trouvé 
 				}
 			}
-			if (j<32)
+			else
 			{
-				break ;
-				//dentry vide deja trouvé 
+				//block courant est deja plein 
+				//creation d'un nouvel bloque
+				//le mettre dans la position i 
+				cur->blocks[i]= get_block();
+				read_block(cur->blocks[i],&tmp_direc);
+				empty_dentry = 0;
+				//stocker le nombre du dentry vide
+				break;
+
 			}
+		}
+
+		// recuperation d'un inode vide 
+		newinode = get_inode();
+		if (newinode == -1 )
+		{
+			printf("espace insuffisant \n");
+			return -1;
+		}
+		tmp_direc.dentry[empty_dentry].inode=newinode; // initialiser l'inode dans la dentry a partir du numero du nouvel inode
+		tmp_direc.dentry[empty_dentry].type= FILE_TYPE;  //le type est un fichier dans la dentry
+		if(strlen(file_name) <32)
+		{
+			tmp_direc.dentry[empty_dentry].length = 32 ;
+			//longeur du nom
 		}
 		else
 		{
-			//block courant est deja plein 
-			//creation d'un nouvel bloque
-			//le mettre dans la position i 
-			cur->blocks[i]= get_block();
-			read_block(cur->blocks[i],&tmp_direc);
-			empty_dentry = 0;
-			//stocker le nombre du dentry vide
-			break;
-
+			tmp_direc.dentry[empty_dentry].length = 64 ;	
 		}
+		//stocker le nom du fichier dans la dentry
+		strncpy(tmp_direc.dentry[empty_dentry].name ,file_name, strlen(file_name));
+		write_block(cur->blocks[i],&tmp_direc);
+		//maj du dentry aprés insertion des infos du fichiers
+		//initialisation de l'inode 
+		read_inode(newinode,&tmp_inode);
+		//lecture de l'inode
+		tmp_inode.type= FILE_TYPE;
+		//initialisation du type (fichier)
+		tmp_inode.num=newinode;
+		//initialisation du numero
+		strcpy (tmp_inode.mode, "rw-rw-r--"); 
+		//mettre les droits par defaut 
+		tmp_inode.size =0 ; // en bytes vide pour le moments
+		//
+		//prop groupe
+		//stocker le nom du fichier dans l'inode
+		strncpy(tmp_inode.name,file_name,strlen(file_name));
+		tmp_inode.blocks[0]=get_block();
+		//bloque 0 vide
+		for(i=1;i<10;i++)
+		{
+			tmp_inode.blocks[i]=-1;
+		}// les autre bloques sont non aloués
+		for (i=0;i<256;i++)
+		{
+			ind_init.blocks[i]=-1;
+		}
+		for (i=0;i<30;i++)
+		{
+			tmp_inode.ind_blocks[i]=ind_init;
+			//les bloques indirectes sont non aloués certainement
+		}
+		//sauvegarde de l'inode 
+		write_inode(newinode,&tmp_inode);	
 	}
-
-	// recuperation d'un inode vide 
-	newinode = get_inode();
-	if (newinode == -1 )
-	{
-		printf("espace insuffisant \n");
-		return -1;
-	}
-	tmp_direc.dentry[empty_dentry].inode=newinode; // initialiser l'inode dans la dentry a partir du numero du nouvel inode
-	tmp_direc.dentry[empty_dentry].type= FILE_TYPE;  //le type est un fichier dans la dentry
-	if(strlen(file_name) <32)
-	{
-		tmp_direc.dentry[empty_dentry].length = 32 ;
-		//longeur du nom
-	}
-	else
-	{
-		tmp_direc.dentry[empty_dentry].length = 64 ;	
-	}
-	//stocker le nom du fichier dans la dentry
-	strncpy(tmp_direc.dentry[empty_dentry].name ,file_name, strlen(file_name));
-	write_block(cur->blocks[i],&tmp_direc);
-	//maj du dentry aprés insertion des infos du fichiers
-	//initialisation de l'inode 
-	read_inode(newinode,&tmp_inode);
-	//lecture de l'inode
-	tmp_inode.type= FILE_TYPE;
-	//initialisation du type (fichier)
-	tmp_inode.num=newinode;
-	//initialisation du numero
-	strcpy (tmp_inode.mode, "rw-rw-r--"); 
-	//mettre les droits par defaut 
-	tmp_inode.size =0 ; // en bytes vide pour le moments
-	//
-	//prop groupe
-	//stocker le nom du fichier dans l'inode
-	strncpy(tmp_inode.name,file_name,strlen(file_name));
-	tmp_inode.blocks[0]=get_block();
-	//bloque 0 vide
-	for(i=1;i<10;i++)
-	{
-		tmp_inode.blocks[i]=-1;
-	}// les autre bloques sont non aloués
-	for (i=0;i<256;i++)
-	{
-		ind_init.blocks[i]=-1;
-	}
-	for (i=0;i<30;i++)
-	{
-		tmp_inode.ind_blocks[i]=ind_init;
-		//les bloques indirectes sont non aloués certainement
-	}
-	//sauvegarde de l'inode 
-	write_inode(newinode,&tmp_inode);
+	
 	//ouverture du fichier créé
 	int ret = -1 ;
 	for (i = 0 ;i<MAX_OPEN_FILES ;i++)
 	//chercher descripteur libre 
 	{
+		if (fd[i]==newinode)
+		{
+			return i;
+		}
 		if (fd[i]== -1 || fd[i] == 0)
 		{
 			//si descripteur vide ou fermé 
@@ -1445,10 +1453,11 @@ int main(int argc, char const *argv[])
 	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
 	//cur=find("/b/");
 	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num);
-	//my_mkdir("/d/"); 
+	my_mkdir("/d/"); 
+
 	//printf("here\n");
-	//my_rmdir("/d/");
-	cur=find("/d");
+	my_rmdir("/d/");
+	cur=find("/d/");
 	//printf("nom fichier %s numero inode : %d type %d \n", cur->name, cur->num,cur->type);
 	//mycreat("/a");
 	//my_read(0,rc2,500);
