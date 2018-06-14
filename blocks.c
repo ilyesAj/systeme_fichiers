@@ -162,7 +162,7 @@ struct inode* find(const char* path)
 	//stocker le root dans cet inode si il s'agit de l'inode du root dans le chemin
 	struct inode* aux = root;
 	//dans aux l'inode recherché sera stocké 
-	struct dir* dir = (struct dir *) malloc(sizeof(struct dir));
+	struct dir dir;
 	//on stockera le dentry suivant les repertoire dans le chemin
 	int count = 0;
 	//le nombre de repertoires dans le chemins
@@ -255,14 +255,14 @@ struct inode* find(const char* path)
 		found=-1;
 		for (k=0;k<10;k++)
 		{
-			read_block(aux->blocks[k],dir);
+			read_block(aux->blocks[k],&dir);
 			
 			for (i=0;i<32;i++)
-			{
-				if (dir->dentry[i].inode!=0 && dir->dentry[i].type==DIR_TYPE && !strcmp(dir->dentry[i].name,arg[j]))
+			{		
+				if (dir.dentry[i].inode!=0 && dir.dentry[i].type==DIR_TYPE && !strcmp(dir.dentry[i].name,arg[j]))
 				{
 					found=1;
-					inum=dir->dentry[i].inode;
+					inum=dir.dentry[i].inode;
 					break;
 				}
 			}
@@ -278,8 +278,7 @@ struct inode* find(const char* path)
 		{
 			read_inode(inum,aux);
 			j++;
-		}
-		
+		}	
 	}
 	found=-1;
 
@@ -289,25 +288,25 @@ struct inode* find(const char* path)
 		{
 			continue;
 		}
-
-		read_block(aux->blocks[k],dir);
+		read_block(aux->blocks[k],&dir);
 		for (i=0;i<32;i++)
 		{
 			if (d==1)
 			{
-				if (dir->dentry[i].inode!=0 && dir->dentry[i].type==DIR_TYPE && !strcmp(dir->dentry[i].name,arg[j]))
+				
+				if (dir.dentry[i].inode!=-1&&dir.dentry[i].inode!=0 && dir.dentry[i].type==DIR_TYPE && !strcmp(dir.dentry[i].name,arg[j]))
 				{
 					found=1;
-					inum=dir->dentry[i].inode;
+					inum=dir.dentry[i].inode;
 					break;
 				}
 			}
 			else
 			{
-				if (dir->dentry[i].inode!=0 && dir->dentry[i].type==FILE_TYPE && !strcmp(dir->dentry[i].name,arg[j]))
+				if (dir.dentry[i].inode!=0 && dir.dentry[i].type==FILE_TYPE && !strcmp(dir.dentry[i].name,arg[j]))
 				{
 					found=1;
-					inum=dir->dentry[i].inode;
+					inum=dir.dentry[i].inode;
 					break;
 				}
 			}
@@ -317,6 +316,7 @@ struct inode* find(const char* path)
 			break;
 		}
 	}
+	
 	if (found==-1)
 	{
 		printf("%s introuvable \n",path );
@@ -438,7 +438,7 @@ int mycreat(const char* path)
 	//nom du repertoire
 	char file_name[MAX_FILE_NAME_LENGTH];
 	//nom du fichier 
-	struct inode *cur;
+	struct inode *cur =(struct inode *) malloc(sizeof(struct inode));
 	//inode du repertoire ou on va creer le fichier
 	struct inode tmp_inode;
 	//inode a creer et stocker dans le disque
@@ -460,7 +460,7 @@ int mycreat(const char* path)
 
 	strncpy(dir_name,path,div+1);
 	//stocker le nom du chemin
-	dir_name[div+1]='\0';
+	dir_name[div+2]='\0';
 	//cloturer la chaine dir_name
 	strncpy(file_name,path+div+1,i-div-1);
 	//stocker le nom du fichier
@@ -493,6 +493,7 @@ int mycreat(const char* path)
 		//lecture du bloque
 		for (j=0;j<32;j++)
 		{
+			
 			if (tmp_direc.dentry[j].inode !=0 && tmp_direc.dentry[j].type==FILE_TYPE && strcmp(tmp_direc.dentry[j].name, file_name) == 0 )
 			//si l'inode du dentry est utilisé et il a le type d'un fichier et le nom du fichier a créé est le meme dans le dentre 
 			{
@@ -569,6 +570,7 @@ int mycreat(const char* path)
 		write_block(cur->blocks[i],&tmp_direc);
 		//maj du dentry aprés insertion des infos du fichiers
 		//initialisation de l'inode 
+		write_inode(cur->num,cur);
 		read_inode(newinode,&tmp_inode);
 		//lecture de l'inode
 		tmp_inode.type= FILE_TYPE;
@@ -640,11 +642,11 @@ void my_mkdir(const char* path)
 	//numero de l'inode vide puis initialiser le repertoire
 	int empty_dentry;
 	//numero de la dentry vide puis l'initialiser
-	char dir_name[MAX_FILE_NAME_LENGTH * MAX_LEVEL];
+	char dir_name[MAX_FILE_NAME_LENGTH * MAX_LEVEL]="";
 	//nom du repertoire
-	char file_name[MAX_FILE_NAME_LENGTH];
+	char file_name[MAX_FILE_NAME_LENGTH]="";
 	//nom du repertoire 
-	struct inode *cur;
+	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
 	//inode du repertoire ou on va creer le repertoire
 	struct inode tmp_inode;
 	//inode a creer et stocker dans le disque
@@ -664,10 +666,10 @@ void my_mkdir(const char* path)
 		i++;
 		//trouver le dernier '/' dans la chaine
 	}
-
+	
 	strncpy(dir_name,path,div+1);
 	//stocker le nom du chemin
-	dir_name[div+1]='\0';
+	dir_name[div+2]='\0';
 	//cloturer la chaine dir_name
 	strncpy(file_name,path+div+1,i-div-1);
 	//stocker le nom du repertoire
@@ -698,10 +700,11 @@ void my_mkdir(const char* path)
 			//bloque non utilisé
 		}
 		read_block(cur->blocks[i],&tmp_direc);
+
 		//lecture du bloque
 		for (j=0;j<32;j++)
 		{
-			if (tmp_direc.dentry[j].inode !=0 && tmp_direc.dentry[j].type==DIR_TYPE && strcmp(tmp_direc.dentry[j].name, file_name) == 0 )
+			if (tmp_direc.dentry[j].inode !=-1 && tmp_direc.dentry[j].inode !=0 && tmp_direc.dentry[j].type==DIR_TYPE && strcmp(tmp_direc.dentry[j].name, file_name) == 0 )
 			//si l'inode du dentry est utilisé et il a le type d'un fichier et le nom du fichier a créé est le meme dans le dentre 
 			{
 				//fichier deja existant !
@@ -710,20 +713,18 @@ void my_mkdir(const char* path)
 			}
 		}
 	}
-
 	//sinon recherche de dentry vide ou mettre le repertoire
-
 	for (i=0;i<10;i++)
 	//parcour des bloque
 	{
-		if (cur->blocks[i] != -1)
+		if (cur->blocks[i] != -1 )
 		{
 			read_block(cur->blocks[i],&tmp_direc);
 			//lecture du bloque
 			for (j=0;j<32;j++)
 			//parcour des dentry
 			{
-				if (tmp_direc.dentry[j].inode==0)
+				if (tmp_direc.dentry[j].inode==0 )
 				//inode vide trouvé
 				{
 					empty_dentry=j;
@@ -752,7 +753,6 @@ void my_mkdir(const char* path)
 		}
 	}
 
-
 	newinode = get_inode();
 	if (newinode == -1 )
 	{
@@ -772,7 +772,7 @@ void my_mkdir(const char* path)
 	//stocker le nom du fichier dans la dentry
 	strncpy(tmp_direc.dentry[empty_dentry].name ,file_name, strlen(file_name));
 	write_block(cur->blocks[i],&tmp_direc);
-
+	write_inode(parent_inode,cur);
 
 	read_inode(newinode,&tmp_inode);
 	//lecture de l'inode
@@ -787,10 +787,11 @@ void my_mkdir(const char* path)
 	//prop groupe
 	//stocker le nom du fichier dans l'inode
 	strncpy(tmp_inode.name,file_name,strlen(file_name));
+
 	tmp_inode.blocks[0]=get_block();
 	dir_block->dentry[0].inode=newinode;
 	dir_block->dentry[0].type= DIR_TYPE;
-	strncpy(dir_block->dentry[0].name,file_name,strlen(file_name));
+	strcpy(dir_block->dentry[0].name,".");
 	if (strlen(file_name)<32)
 	{
 		dir_block->dentry[0].length=32;
@@ -801,7 +802,7 @@ void my_mkdir(const char* path)
 	}
 	dir_block->dentry[1].inode=parent_inode;
 	dir_block->dentry[1].type = DIR_TYPE;
-	strncpy(dir_block->dentry[0].name,dir_name,strlen(dir_name));
+	strcpy(dir_block->dentry[1].name,"..");
 	if (strlen(dir_name)<32)
 	{
 		dir_block->dentry[1].length=32;
@@ -811,7 +812,6 @@ void my_mkdir(const char* path)
 		dir_block->dentry[1].length=64;
 	}
 	write_block(tmp_inode.blocks[0],dir_block);
-
 	for(i = 1; i < 10; i++)
 		tmp_inode.blocks[i] = -1;    // les autres blocs sont a null on pas depassé qté de données d'un bloque de données
 	for (i=0;i<256;i++)
@@ -821,8 +821,7 @@ void my_mkdir(const char* path)
 
 	for(i = 0; i < 30; i++)
 		tmp_inode.ind_blocks[i] = ind_init; 
-	write_inode(newinode,&tmp_inode);	
-
+	write_inode(newinode,&tmp_inode);
 }
 
 void my_close(const char* path)
@@ -1423,19 +1422,15 @@ void my_rmdir (const char* path)
 	bk[k]='\x00';
 	write_block(l,bk);
 }
-
-
-
-
 int main(int argc, char const *argv[])
 {
 	
-	//char msg[500]="Arrivés à ce point, vous savez rédiger un document, à partir d'une feuille vide ou en utilisant un modèle, l'enregistrer au format adéquat, faire des sélections, recherches et remplacements. Nous allons maintenant nous intéresser à la mise en forme des éléments textuels";
-	//char rc[500]="";
+	char msg[500]="Arrivés à ce point, vous savez rédiger un document, à partir d'une feuille vide ou en utilisant un modèle, l'enregistrer au format adéquat, faire des sélections, recherches et remplacements. Nous allons maintenant nous intéresser à la mise en forme des éléments textuels";
+	char rc[500]="";
 	//char rc2[500]="";
 	//char msg2[20]="";
 	//char rc2[20]="";
-	//format_disk();
+	format_disk();
 	//mycreat("/a");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
 	//cur=find("/a");
@@ -1454,11 +1449,17 @@ int main(int argc, char const *argv[])
 	//cur=find("/b/");
 	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num);
 	my_mkdir("/d/"); 
+	cur = find("/d/");
+	my_mkdir("/d/a/");
+	//cur=find("/a/");
+	cur=find("/d/a/");
+	printf("nom fichier %s numero inode : %d type %d \n", cur->name, cur->num,cur->type);
 
-	//printf("here\n");
-	my_rmdir("/d/");
-	cur=find("/d/");
-	//printf("nom fichier %s numero inode : %d type %d \n", cur->name, cur->num,cur->type);
+	my_mkdir("/d/a/d/");
+	mycreat("/d/a/d/a");
+	cur=find("/d/a/d/a");
+	printf("nom fichier %s numero inode : %d type %d \n", cur->name, cur->num,cur->type);
+
 	//mycreat("/a");
 	//my_read(0,rc2,500);
 	//close(f);
