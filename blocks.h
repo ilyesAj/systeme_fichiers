@@ -11,16 +11,18 @@
 #define INODE_TABLE_START 16      //first inode block
 #define BLOCK_TABLE_START 2516    //inode table costs 2500 blocks 
 #define BLOCKSIZE 1024
-#define EMPTY_BLOCK 102399
+
 #define FILE_TYPE 1
 #define DIR_TYPE 2
 
 #define MAX_LEVEL 10     //max level number of directory
 
-
+#define EMPTY_BLOCK 102399
 int fd[MAX_OPEN_FILES];        // file description
-char cwd_name[100];           // current working directory name
-int cwd_inode;            // working directory's inode
+char cwd_name[100];  
+char cwd_pname[100];         // current working directory name
+int cwd_inode;      
+int cwd_pinode;      // working directory's inode and his father
 
 // super block
 struct super_block
@@ -75,6 +77,27 @@ struct dir
 struct bmap {
 	unsigned char map[BLOCKSIZE];
 };
+
+void open_disk ();
+int read_block(int number, void * block ) ;// plusieur type de blocks (super block , inode block données ...)
+int write_block(int number, void * block);
+int write_inode(int number , void * inode);
+int read_inode(int number , void * inode);
+void format_disk ();
+struct inode* find(const char* path);
+void seek_block (int* i, int* j,int nbck);
+void seek_inode (int* i, int* j,int nbck);
+int get_block();
+int get_inode() ;
+int mycreat(const char* path);
+void my_mkdir_dir(const char* path);
+void my_close(const char* path);
+int my_open(const char* path);
+int my_read (int fdd, void * buf ,int nbtes);
+int my_write (int fdd, char * buf ,int nbtes);
+void my_rm_file(const char* path);
+void my_rmdir_dir (const char* path);
+int find_rep(const char* path,char arg[][MAX_FILE_NAME_LENGTH]);
 
 
 #endif

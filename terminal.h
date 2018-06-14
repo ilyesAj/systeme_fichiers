@@ -4,8 +4,8 @@
 
 #define MAX 1024
 #define PARAM 10
-#define NBBASE 12
-char Base[NBBASE][MAX]={"cp","rm","mv","cat","ln","echo","ls","mkdir","rmdir","cd","df","touch"};
+#define NBBASE 13
+char Base[NBBASE][MAX]={"cp","rm","mv","cat","ln","echo","ls","mkdir","rmdir","cd","df","touch","pwd"};
 
 char* supprimer_espace (char* cmd); //formater l'entré du terminal 
 int verif_cmd (char par[][MAX],int indice);// verifier si la case indice est une commande dans la base ou pas
