@@ -2,75 +2,68 @@
 #define BLOKCS_H
 
 #define MAX_FILE_NAME_LENGTH 50
-#define MAX_FILE_NUM 10000   //amount of inode
+#define MAX_FILE_NUM 10000   //Nombre maximal d'inodes
 #define MAX_OPEN_FILES 10
-// #define BITMAP_START 1
-#define BLOCK_MAP_START 1    // block_map cost 13 blocks, which is 13312 Bytes, and then 106496 bit, which means 106MB space
-#define INODE_MAP_START 14   // inode_map cost 2 blocks, which is 16096 bits, actually use 10000 bit
-// #define BITMAP_LENGTH 32
-#define INODE_TABLE_START 16      //first inode block
-#define BLOCK_TABLE_START 2516    //inode table costs 2500 blocks 
+#define BLOCK_MAP_START 1    // block_map coute 13 blocs
+#define INODE_MAP_START 14   // inode_map coute 2 blocs
+#define INODE_TABLE_START 16      //premier inode bloc
+#define BLOCK_TABLE_START 2516    //inode table coute 2500 blocs 
 #define BLOCKSIZE 1024
 
 #define FILE_TYPE 1
 #define DIR_TYPE 2
 
-#define MAX_LEVEL 10     //max level number of directory
+#define MAX_LEVEL 10     //nbre max de sous dossier
 
 #define EMPTY_BLOCK 102399
 int fd[MAX_OPEN_FILES];        // file description
 char cwd_name[100];  
-char cwd_pname[100];         // current working directory name
+char cwd_pname[100];         // dossier courant
 int cwd_inode;      
-int cwd_pinode;      // working directory's inode and his father
+int cwd_pinode;      // inode du dossier courant 
 
 // super block
 struct super_block
 {
 	int magic_number;
-	int block_num;          //total block number
-	int inode_num;			//total inode number
-	int free_blk;			//free block number
-	int free_inode;			//free inode number
+	int block_num;          //nb total de blocs
+	int inode_num;			//nb total d'inodes
+	int free_blk;			//nb blocs vide
+	int free_inode;			//nb inode vide
 };
 
 struct ind_block
 {
-	int blocks[256];
+	int blocks[256];  //bloc indirecte forme de table de bloc directe
 };
 
 // each inode has 256 Bytes
 struct inode {
-	int type;                       /* 1 for file, 2 for dir */
-	int num;                        /* inode number */
-	int size;                        /* file size */
-	int uid;						/* user id */
-	int gid;						/* group id */
-	char mode[11];					/* ACL of inode */
-	char name[MAX_FILE_NAME_LENGTH];   /* file name */
-	int blocks[10];                 /* direct blocks(10 KB) */
-	struct ind_block ind_blocks[30];            /* indirect blocks(7.5 MB) */
-	//3-level indirect blocks
+	int type;                       //1:fichier et 2:dossier 
+	int num;                        //num inode
+	int size;                        //taille fichier
+	int uid;						//id utilisateur
+	int gid;						//id group
+	char mode[11];					//droits
+	char name[MAX_FILE_NAME_LENGTH];   //nom fichier
+	int blocks[10];                //bloc directe
+	struct ind_block ind_blocks[30];            //bloc indirecte
 	char unused[15];
 };
 
-// indirect block's structure
-
-
-//directory entry in block (32 bytes), each block has 32 dir entries at most
+//structure dossier et direntry expliqué au rapport
 struct dirEntry
 {
-	int inode;          // dir entry inode
-	int type;           // dir entry type: file or sub dir
-	int length;         // file name's length: 32 or 64
-	char name[20];      // file or sub dir name, can be extended to 50 Bytes
+	int inode;          // inode dir entry 
+	int type;           // type dir entry 
+	int length;         // nom fichier
+	char name[20];      // nom du sous dossier 
 };
 
 
-// directory block struct, has 32 dir entries space
 struct dir
 {
-	struct dirEntry dentry[32];    // two 32B can cast to one 64B
+	struct dirEntry dentry[32];   
 };
 
 //bitmap in block
@@ -79,7 +72,7 @@ struct bmap {
 };
 
 void open_disk ();
-int read_block(int number, void * block ) ;// plusieur type de blocks (super block , inode block données ...)
+int read_block(int number, void * block ) ;// plusieurs type de blocks (super block , inode block données ...)
 int write_block(int number, void * block);
 int write_inode(int number , void * inode);
 int read_inode(int number , void * inode);
