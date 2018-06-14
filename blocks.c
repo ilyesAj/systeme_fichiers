@@ -319,7 +319,7 @@ struct inode* find(const char* path)
 	
 	if (found==-1)
 	{
-		printf("%s introuvable \n",path );
+		printf("%s introuvable ",path );
 		return NULL;
 	}
 	else	
@@ -1261,6 +1261,60 @@ int my_write (int fdd, char * buf ,int nbtes)
 	}
 
 }
+
+void my_ls_dir (const char* path)
+{
+	int i =0, j, k; //compteurs
+
+	struct inode *cur =(struct inode *) malloc(sizeof(struct inode));
+	int total=0;
+	struct inode tmp_inode;
+	struct dir tmp_direc;
+	char type[2]="";
+	cur=find(path);
+	
+	if (cur->type == FILE_TYPE)
+	{
+		printf("%s est un fichier \n",path );
+	}
+	for(i=0;i<10;i++)
+	//parcourir les blocks
+	{
+		if (cur->blocks[i] == -1  || cur->blocks[i] == 0)
+		{
+			continue ;
+			//aller vers l'iteration suivante
+			//bloque non utilisé
+		}
+		read_block(cur->blocks[i],&tmp_direc);
+		//lecture du bloque
+		if (i==0)
+		{
+			j=2;
+		}
+		else
+			j=0;
+		for (;j<32;j++)
+		{
+			
+			if (tmp_direc.dentry[j].inode !=0 && tmp_direc.dentry[j].inode !=-1)
+			{
+				
+				read_inode(tmp_direc.dentry[j].inode,&tmp_inode);
+				if(tmp_inode.type==1) 
+						strcpy(type,"-");
+					else 
+						strcpy(type,"d"); 
+					printf("%s%s root root %d %s\n",type,tmp_inode.mode,tmp_inode.size,tmp_inode.name);
+				total++;
+			}
+		}
+		
+	}
+	if (total)
+	printf("Total %d\n",total);	
+}
+
 void my_rm_file(const char* path)
 {
 	int i =0, j,l,k,inum; //compteurs
@@ -1508,18 +1562,15 @@ void my_rmdir_dir (const char* path)
 }
 
 
-
 /*
 int main(int argc, char const *argv[])
 {
-	
 	//char msg[500]="Arrivés à ce point, vous savez rédiger un document, à partir d'une feuille vide ou en utilisant un modèle, l'enregistrer au format adéquat, faire des sélections, recherches et remplacements. Nous allons maintenant nous intéresser à la mise en forme des éléments textuels";
 	//char rc[500]="";
 	//char rc2[500]="";
 	//char msg2[20]="";
 	//char rc2[20]="";
 	format_disk();
-	mycreat("/a");
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
 	//cur=find("/a");
 	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 
@@ -1529,8 +1580,18 @@ int main(int argc, char const *argv[])
 	//my_write(0,msg2,20);
 	//my_read(0,rc2,20);
 	//printf("%s\n",rc2 );
-	my_rm_file("/a");
-	//my_mkdir("/b/");
+	mycreat("/a");
+	mycreat("/b");
+	mycreat("/xx");
+	my_ls_dir("/");
+	my_mkdir_dir("/b/");
+	mycreat("/b/z");
+	mycreat("/b/x");
+	mycreat("/b/a");
+	my_ls_dir("/b/");
+	my_mkdir_dir("/b/c/");
+	mycreat("/b/c/e");
+	my_ls_dir("/b/c/");
 	//mycreat("/b/a");
 	//cur=find("/a");
 	//printf("nom fichier %s numero inode : %d \n", cur->name, cur->num); 

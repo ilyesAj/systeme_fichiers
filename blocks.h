@@ -98,6 +98,7 @@ int my_write (int fdd, char * buf ,int nbtes);
 void my_rm_file(const char* path);
 void my_rmdir_dir (const char* path);
 int find_rep(const char* path,char arg[][MAX_FILE_NAME_LENGTH]);
+void my_ls_dir (const char* path);
 
 
 #endif

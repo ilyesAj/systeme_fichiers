@@ -168,15 +168,23 @@ void my_touch(char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	int err=0 ;
 	int k ;
 	int descriptor;
-	char file[20];
+	char file[20]="";
 	if (nbopt>-1)
 		err=-1 ;
 	if(err!=-1)
 	for (k=0;k<=i;k++)
 	{
-		strcpy(file,"/") ;
-		strcat(file,argu[k]);
-		descriptor=mycreat(file);
+		if (argu[0][0]!='/')
+		{	
+			strcpy(file,cwd_name) ;
+			strcat(file,argu[k]);
+			descriptor=mycreat(file);
+		}
+		else
+		{
+			descriptor=mycreat(argu[k]);	
+		}
+
 	}
 }
 
@@ -200,6 +208,7 @@ void my_cd (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	**************************** */ 
 	char cheminp[MAX_FILE_NAME_LENGTH*MAX_LEVEL]="/";
 	char arg[MAX_LEVEL][MAX_FILE_NAME_LENGTH];
+	char file [20] = "";
 	int j,u ;
 			
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
@@ -243,13 +252,29 @@ void my_cd (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 		} 
 		else
 		{
-			if(find(argu[0])==NULL)
-				printf("Chemin introuvable");
+			if (argu[0][0]!='/')
+			{
+				strcat(file,cwd_name);
+				strcat(file,argu[0]);
+				if(find(file)==NULL)
+					printf("Chemin introuvable");
+				else
+				{
+					cur=find(file);
+					cwd_inode=cur->num ;
+					strcpy(cwd_name,file) ;		
+				}	
+			}
 			else
 			{
-				cur=find(argu[0]);
-				cwd_inode=cur->num ;
-				strcpy(cwd_name,argu[0]) ;
+				if(find(argu[0])==NULL)
+					printf("Chemin introuvable");
+				else
+				{
+					cur=find(argu[0]);
+					cwd_inode=cur->num ;
+					strcpy(cwd_name,argu[0]) ;
+				}	
 			}
 		}
 	}
@@ -288,19 +313,35 @@ void my_cp (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	{
 		if (choix =='Y' || choix== 'y' || choix =='\0')
 		{
-			strcpy(file,"/");
-			strcat(file,argu[0]);
-			if (find(file)==NULL)
-				printf("Fichier inexistant \n");
-			else 
+			if (argu[0][0]!='/')
 			{
-				descriptor=mycreat(file);
-				my_read(descriptor,cr,20) ; //Lecture depuis le premier fichier
-				strcpy(file,"/");
-				strcat(file,argu[1]);
-				descriptor=mycreat(file);
-				my_write(descriptor,cr,20);//Insertion du contenu du premier fichier vers le deuxiéme
+				strcpy(file,cwd_name);
+				strcat(file,argu[0]);
+				if (find(file)==NULL)
+					printf("Fichier inexistant ");
+				else 
+				{
+					descriptor=mycreat(file);
+					my_read(descriptor,cr,20) ; //Lecture depuis le premier fichier
+					strcpy(file,cwd_name);
+					strcat(file,argu[1]);
+					descriptor=mycreat(file);
+					my_write(descriptor,cr,20);//Insertion du contenu du premier fichier vers le deuxiéme
 
+				}
+			}
+			else
+			{
+				if (find(argu[0])==NULL)
+					printf("Fichier inexistant ");
+				else 
+				{
+					descriptor=mycreat(argu[0]);
+					my_read(descriptor,cr,20) ; //Lecture depuis le premier fichier
+					descriptor=mycreat(argu[1]);
+					my_write(descriptor,cr,20);//Insertion du contenu du premier fichier vers le deuxiéme
+
+				}
 			}
 		}
 	}
@@ -335,9 +376,9 @@ void my_rmdir (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	{
 		if (choix =='Y' || choix =='y' || choix =='\0')
 		{
-			strcpy(file,"/");
+			strcpy(file,cwd_name);
 			strcat(file,argu[0]);
-			strcat(file,"/");
+			//strcat(file,"/");
 			if (find(file)!=NULL)
 				my_rmdir_dir(file);
 			else 
@@ -383,12 +424,23 @@ void my_rm (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	{
 		if (choix =='Y' || choix =='y' || choix=='\0')
 		{
-			strcpy(file,"/");
-			strcat(file,argu[0]);
-			if (find(file)==NULL)
-				printf("Fichier non trouvé \n");
+			if (argu[0][0]!='/')
+			{
+				strcpy(file,cwd_name);
+				strcat(file,argu[0]);
+				if (find(file)==NULL)
+					printf("Fichier non trouvé \n");
+				else
+					my_rm_file(file) ;
+			}
 			else
-				my_rm_file(file) ;
+			{
+				if (find(argu[0])==NULL)
+					printf("Fichier non trouvé \n");
+				else
+					my_rm_file(argu[0]) ;	
+			}
+			
 		}
 	}
 }
@@ -448,8 +500,8 @@ void my_cat (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt,char r
 	// cat dans notre cas n'aura qu'une seule option qui est -n pour numéroter les lignes
 	int err=0; int k ;
 	int descriptor ;
-	char file [20] ;
-	char file2 [20] ;
+	char file [20] ="";
+	char file2 [20]="" ;
 	
 	char cr [20] ;
 
@@ -469,30 +521,55 @@ void my_cat (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt,char r
 		{
 			//en cas de redirection on cree le nouveau fichier et on lit le contenu
 			//du premier fichier et le renvoyer vers le deuxieme en changeant de descripteur
-			strcpy(file,"/");
-			strcat(file,argu[0]);
-			strcpy(file2,"/");
-			strcat(file2,red);
-			descriptor=mycreat(file);
-			my_read(descriptor,cr,20) ;
-			descriptor=mycreat(file2);
-			my_write(descriptor,cr,20);
-			
+			if (argu[0][0]!='/')
+			{	
+				strcpy(file,cwd_name);
+				strcat(file,argu[0]);
+				strcpy(file2,cwd_name);
+				strcat(file2,red);
+				descriptor=mycreat(file);
+				my_read(descriptor,cr,20) ;
+				descriptor=mycreat(file2);
+				my_write(descriptor,cr,20);
+			}
+			else
+			{
+				descriptor=mycreat(argu[0]);
+				my_read(descriptor,cr,20) ;
+				descriptor=mycreat(red);
+				my_write(descriptor,cr,20);	
+			}
 		}
 		else
 		{
-			strcpy(file,"/");
-			strcat(file,argu[0]);
-			if (find(file)==NULL)
-				printf("Fichier inexistant \n");
-			else 
+			if (argu[0][0]!='/')
+			{	
+				strcpy(file,cwd_name);
+				strcat(file,argu[0]);
+				if (find(file)==NULL)
+					printf("Fichier inexistant \n");
+				else 
+				{
+					descriptor=mycreat(file);
+					my_read(descriptor,cr,20) ;
+					printf("%s ",cr);
+						//Creation du fichier s'il n'existe pas 
+				}		//Affecter le contenu de argu[k] dans le fichier 
+			}
+			else
 			{
-				descriptor=mycreat(file);
-				my_read(descriptor,cr,20) ;
-				printf("%s ",cr);
-					//Creation du fichier s'il n'existe pas 
-			}		//Affecter le contenu de argu[k] dans le fichier 
-		}	
+				if (find(argu[0])==NULL)
+					printf("Fichier inexistant \n");
+				else 
+				{
+					descriptor=mycreat(argu[0]);
+					my_read(descriptor,cr,20) ;
+					printf("%s ",cr);
+						//Creation du fichier s'il n'existe pas 
+				}	
+			}
+		}
+
 	}
 }
 
@@ -511,19 +588,27 @@ void my_echo (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt,char 
 	int err=0 ;
 	int k ;
 	int descriptor ;
-	char file [20] ;
-	char rc2 [20] ;
+	char file [20] ="" ;
+	char rc2 [20]="" ;
 	if (nbopt>-1) err=-1 ;
 	if (err!=-1)
 	{	
 		if (strcmp(red,""))
 		{
-			strcpy(file,"/");
-			strcat(file,red);
-			descriptor=mycreat(file);
-			my_write(descriptor,argu[0],20);
-			//Creation du fichier s'il n'existe pas 
-			//Affecter le contenu de argu[k] dans le fichier 
+			if (argu[0][0]!='/')
+			{
+				strcpy(file,cwd_name);
+				strcat(file,red);
+				descriptor=mycreat(file);
+				my_write(descriptor,argu[0],20);
+				//Creation du fichier s'il n'existe pas 
+				//Affecter le contenu de argu[k] dans le fichier 
+			}
+			else
+			{
+				descriptor=mycreat(red);
+				my_write(descriptor,argu[0],20);			
+			}
 		}
 		else 
 			for (k=0;k<=i;k++) 
@@ -537,6 +622,7 @@ void my_ls (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	int err=0; int k ; 
 	int l=-1;
 	char type[2];
+	char file [20]="";
 	struct inode *cur = (struct inode *) malloc(sizeof(struct inode));
 
 	if(nbopt>-1) 
@@ -554,18 +640,39 @@ void my_ls (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	{
 		if (l!=-1)
 		{
+			printf("\n"); 
 			if (find(argu[0])!=NULL)
-			{
-				if(find(argu[0])==NULL)
-					printf("Fichier inexistant");
-				else
+			{	
+				if (strcmp(argu[0],"")==0)
+					my_ls_dir(cwd_name);
+
+				if(argu[0][strlen(argu[0]-1)]=='/')
 				{
-					cur=find(argu[0]);
-					if(cur->type==1) 
-						strcpy(type,"-");
-					else 
-						strcpy(type,"d"); 
-					printf("%s%s root root %d %s",type,cur->mode,cur->size,cur->name);
+					if (argu[0][0]!='/')
+					{
+						strcat(file,cwd_name);
+						strcat(file,argu[0]);
+						my_ls_dir(file);	
+					}
+					else
+					{
+						my_ls_dir(argu[0]);	
+					}	
+					
+				}
+				else
+				{	
+					if(find(argu[0])==NULL)
+						printf("Fichier inexistant");
+					else
+					{
+						cur=find(argu[0]);
+						if(cur->type==1) 
+							strcpy(type,"-");
+						else 
+							strcpy(type,"d"); 
+						printf("%s%s root root %d %s",type,cur->mode,cur->size,cur->name);
+					}
 				}
 			}
 		}
@@ -581,9 +688,15 @@ void my_mkdir (char par [],char argu[][MAX],char opt[][MAX],int i,int nbopt)
 	if(nbopt>-1) err=-1 ;
 	if (err!=-1)
 	{
-		//strcpy(file,"/");
-		//strcat(file,"/");
-		my_mkdir_dir(argu[0]);
+		if (argu[0][0]!='/')
+			{
+				strcpy(file,cwd_name);
+				strcat(file,argu[0]);
+				my_mkdir_dir(file);
+			}
+		else
+			my_mkdir_dir(argu[0]);
+		
 	}
 }
 
@@ -664,7 +777,8 @@ void moteur_cmd (char par[],char argu[][MAX],char opt[][MAX],char red[],int i,in
 		if (strcmp(par,"ls")==0)
 		{
 			printf("[ISTY]:~$ ");
-			my_ls(par,argu,opt,i,nbopt);	
+			my_ls(par,argu,opt,i,nbopt);
+			printf("\n");	
 		}
 		if (strcmp(par,"mkdir")==0)
 		{
